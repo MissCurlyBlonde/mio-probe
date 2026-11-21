@@ -1,0 +1,39 @@
+name: Build WinCE app
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install CeGCC toolchain
+        run: |
+          set -e
+          wget -q https://github.com/brain-hackers/cegcc-build/releases/download/2022-10-26-225811/cegcc-x86_64-2022-10-26-225811.zip
+          unzip -q cegcc-x86_64-2022-10-26-225811.zip -d /tmp/cegcc_x
+          GCC=$(find /tmp/cegcc_x -name arm-mingw32ce-gcc -type f | head -n1)
+          echo "Found compiler at: $GCC"
+          ROOT=$(dirname "$(dirname "$GCC")")
+          sudo rm -rf /opt/cegcc
+          sudo mv "$ROOT" /opt/cegcc
+          sudo chmod -R a+rx /opt/cegcc
+
+      - name: Build
+        run: |
+          set -e
+          export PATH=/opt/cegcc/bin:$PATH
+          arm-mingw32ce-gcc --version
+          mkdir -p out
+          arm-mingw32ce-gcc -O2 -static-libgcc -o out/probe.exe probe.c
+          arm-mingw32ce-strip out/probe.exe || true
+          ls -l out
+
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-exe
+          path: out/
